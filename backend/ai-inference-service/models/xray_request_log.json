@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": "2026-04-06T21:02:05.419097",
+    "top_class": "VIRAL_PNEUMONIA",
+    "top_confidence": 78.95,
+    "low_confidence": false,
+    "processing_ms": 365.9,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-06T21:10:10.135756",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 68.34,
+    "low_confidence": false,
+    "processing_ms": 300.0,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-06T22:41:48.778693",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 68.34,
+    "low_confidence": false,
+    "processing_ms": 3882.4,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-06T22:45:00.128153",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 68.34,
+    "low_confidence": false,
+    "processing_ms": 638.5,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-07T00:40:27.959793",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 68.34,
+    "low_confidence": false,
+    "processing_ms": 360.5,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-07T04:15:29.164647",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 68.34,
+    "low_confidence": false,
+    "processing_ms": 946.5,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-07T04:27:06.642455",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 97.13,
+    "low_confidence": false,
+    "processing_ms": 312.3,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-07T05:01:28.379387",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 92.31,
+    "low_confidence": false,
+    "processing_ms": 470.0,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-07T05:06:54.465043",
+    "top_class": "BACTERIAL_PNEUMONIA",
+    "top_confidence": 68.34,
+    "low_confidence": false,
+    "processing_ms": 336.2,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-23T08:01:58.707345",
+    "top_class": "NORMAL",
+    "top_confidence": 99.92,
+    "low_confidence": false,
+    "processing_ms": 1085.3,
+    "error": null
+  },
+  {
+    "timestamp": "2026-04-23T08:02:50.174973",
+    "top_class": "VIRAL_PNEUMONIA",
+    "top_confidence": 97.58,
+    "low_confidence": false,
+    "processing_ms": 63.8,
+    "error": null
+  }
+]

@@ -1,0 +1,23 @@
+﻿SAMPLE CLINICAL REPORT 2 - FOR TESTING ONLY
+Not a real patient record
+
+Patient Name: Meera Iyer
+Age: 35
+Sex: Female
+Report Date: 06-Apr-2026
+
+Chief Complaint: Lower abdominal pain for 2 days with nausea, vomiting, burning urination, and low-grade fever.
+
+Medical History: Recurrent urinary tract infection twice in the last year. No diabetes, hypertension, kidney disease, pregnancy, or prior abdominal surgery.
+
+Current Medications: Pantoprazole 40 mg once daily; Ondansetron 4 mg as needed; Oral rehydration solution after vomiting.
+
+Allergies: No known drug allergies.
+
+Vitals: BP: 118/76 mmHg; Pulse: 96 bpm; Temp: 100.4 F; SpO2: 98%; Weight: 62 kg; RBS: 108 mg/dL.
+
+Lab Reports: Urine pus cells 20-25/HPF; nitrite positive; leukocyte esterase positive; WBC 11800/uL; CRP 18 mg/L; Creatinine 0.8 mg/dL.
+
+Diagnosis: Suspected acute urinary tract infection with dehydration risk due to vomiting.
+
+Doctor Comments: Recommend urine culture, hydration, antipyretic support, and urgent review if flank pain, high fever, persistent vomiting, or reduced urine output develops.

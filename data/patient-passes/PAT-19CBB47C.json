@@ -1,0 +1,56 @@
+{
+  "patientCode": "PAT-19CBB47C",
+  "handoffRoute": "http://localhost:3000/patient-pass/PAT-19CBB47C",
+  "detailRoute": "http://localhost:3000/patient-pass/PAT-19CBB47C/details",
+  "consultationRoute": "http://localhost:3000/consultation/PAT-19CBB47C",
+  "generatedAt": "2026-04-07T07:19:37.796Z",
+  "booking": {
+    "appointmentId": "BK-A1A2D63A",
+    "doctorId": "mock-admin-uuid",
+    "doctorName": "Dr. Admin",
+    "doctorEmail": "admin@medcopilot.com",
+    "specialty": "General Medicine",
+    "hospitalName": "MedCoPilot Demo Clinic",
+    "appointmentDate": "24535-03-12",
+    "appointmentTime": "11:02",
+    "visitType": "In-person",
+    "reason": "zdbtbrg",
+    "symptoms": "fnzdsfnszh",
+    "status": "Booked"
+  },
+  "patient": {
+    "fullName": "Aakash Rana",
+    "age": "28",
+    "gender": "Male",
+    "dateOfBirth": "1998-01-01",
+    "bloodGroup": "B+",
+    "phone": "9876543210",
+    "email": "user@medcopilot.com",
+    "address": "H.No 123, Sector 45, Gurgaon, Haryana, India",
+    "occupation": "Student",
+    "insuranceId": "IND-88223344"
+  },
+  "emergencyContact": {
+    "name": "Raj Rana",
+    "phone": "9988776655",
+    "relation": "Brother"
+  },
+  "vitals": {
+    "bp": "120/80",
+    "pulse": "76",
+    "temperature": "98.4",
+    "spo2": "98",
+    "weight": "72.5",
+    "rbs": "98"
+  },
+  "history": {
+    "currentSymptoms": "Occasional mild sneezing due to weather change.",
+    "pastHistory": "Mild seasonal allergies, no prior surgeries.",
+    "chronicConditions": "None",
+    "surgicalHistory": "None",
+    "familyHistory": "No major hereditary conditions.",
+    "allergies": "Dust, Pollen",
+    "currentMedications": "Multivitamins once daily",
+    "lifestyleNotes": "Active lifestyle, regular exercise, non-smoker."
+  }
+}

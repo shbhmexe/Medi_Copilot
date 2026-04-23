@@ -1,0 +1,55 @@
+{
+  "patientCode": "PAT-1E5F2339",
+  "handoffRoute": "http://localhost:3000/patient-pass/PAT-1E5F2339",
+  "consultationRoute": "http://localhost:3000/consultation/PAT-1E5F2339",
+  "generatedAt": "2026-04-07T00:11:30.063Z",
+  "booking": {
+    "appointmentId": "BK-EAD75B09",
+    "doctorId": "mock-admin-uuid",
+    "doctorName": "Dr. Admin",
+    "doctorEmail": "admin@medcopilot.com",
+    "specialty": "General Medicine",
+    "hospitalName": "MedCoPilot Demo Clinic",
+    "appointmentDate": "2026-03-12",
+    "appointmentTime": "12:00",
+    "visitType": "In-person",
+    "reason": "Experiencing fever (101°F), dry cough, fatigue, and mild headache for 3 days; symptoms are moderate and not improving with basic medication.",
+    "symptoms": "Headache from 3 days, mild acidity, fatigue, and occasional dizziness especially in the evening",
+    "status": "Booked"
+  },
+  "patient": {
+    "fullName": "shubham shukla",
+    "age": "23",
+    "gender": "male",
+    "dateOfBirth": "0220-03-12",
+    "bloodGroup": "A-",
+    "phone": "1321323122",
+    "email": "user@medcopilot.com",
+    "address": "Flat 302, Green Residency, Indirapuram, Ghaziabad, Uttar Pradesh, 201014",
+    "occupation": "student ",
+    "insuranceId": "INS-AR-2026-1198"
+  },
+  "emergencyContact": {
+    "name": "Sunita Rana",
+    "phone": "9811122233",
+    "relation": "Mother"
+  },
+  "vitals": {
+    "bp": "120/80",
+    "pulse": "29",
+    "temperature": "99",
+    "spo2": "89",
+    "weight": "45",
+    "rbs": "98"
+  },
+  "history": {
+    "currentSymptoms": "Headache from 3 days, mild acidity, fatigue, and occasional dizziness especially in the evening",
+    "pastHistory": "Recurrent gastritis for 2 years, one prior dengue infection in 2021, occasional migraine episodes.",
+    "chronicConditions": "Mild hypertension",
+    "surgicalHistory": "Appendix surgery in 2018",
+    "familyHistory": "Father has type 2 diabetes and hypertension. Mother has hypothyroidism.",
+    "allergies": "Penicillin allergy causing rash",
+    "currentMedications": "Telmisartan 40 mg once daily, Pantoprazole 40 mg once daily before breakfast",
+    "lifestyleNotes": " Desk job, low physical activity, sleeps 6 hours daily, occasional outside food, no smoking, no alcohol"
+  }
+}

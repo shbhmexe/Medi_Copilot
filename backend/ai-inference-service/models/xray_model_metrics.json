@@ -1,0 +1,99 @@
+{
+  "best_val_accuracy": 0.8198,
+  "test_accuracy": 0.8205,
+  "per_class": {
+    "BACTERIAL_PNEUMONIA": {
+      "precision": 0.8442,
+      "recall": 0.9628,
+      "f1": 0.8996,
+      "support": 242
+    },
+    "NORMAL": {
+      "precision": 0.994,
+      "recall": 0.7137,
+      "f1": 0.8308,
+      "support": 234
+    },
+    "VIRAL_PNEUMONIA": {
+      "precision": 0.6222,
+      "recall": 0.7568,
+      "f1": 0.6829,
+      "support": 148
+    }
+  },
+  "history": [
+    {
+      "phase": 1,
+      "epoch": 1,
+      "train_loss": 0.7561,
+      "val_loss": 0.6276,
+      "val_acc": 0.7507
+    },
+    {
+      "phase": 1,
+      "epoch": 2,
+      "train_loss": 0.6217,
+      "val_loss": 0.5765,
+      "val_acc": 0.7613
+    },
+    {
+      "phase": 1,
+      "epoch": 3,
+      "train_loss": 0.5992,
+      "val_loss": 0.5414,
+      "val_acc": 0.7776
+    },
+    {
+      "phase": 1,
+      "epoch": 4,
+      "train_loss": 0.5766,
+      "val_loss": 0.5502,
+      "val_acc": 0.7632
+    },
+    {
+      "phase": 1,
+      "epoch": 5,
+      "train_loss": 0.5935,
+      "val_loss": 0.5417,
+      "val_acc": 0.7651
+    },
+    {
+      "phase": 2,
+      "epoch": 1,
+      "train_loss": 0.4884,
+      "val_loss": 0.4563,
+      "val_acc": 0.7987
+    },
+    {
+      "phase": 2,
+      "epoch": 2,
+      "train_loss": 0.4253,
+      "val_loss": 0.4362,
+      "val_acc": 0.8102
+    },
+    {
+      "phase": 2,
+      "epoch": 3,
+      "train_loss": 0.3884,
+      "val_loss": 0.4231,
+      "val_acc": 0.8054
+    },
+    {
+      "phase": 2,
+      "epoch": 4,
+      "train_loss": 0.3399,
+      "val_loss": 0.3953,
+      "val_acc": 0.8198
+    },
+    {
+      "phase": 2,
+      "epoch": 5,
+      "train_loss": 0.324,
+      "val_loss": 0.4238,
+      "val_acc": 0.8035
+    }
+  ],
+  "model_architecture": "MobileNetV2",
+  "num_classes": 3,
+  "img_size": 224
+}

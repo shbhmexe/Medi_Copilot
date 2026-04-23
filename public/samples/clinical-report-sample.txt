@@ -1,0 +1,23 @@
+﻿SAMPLE CLINICAL REPORT - FOR TESTING ONLY
+Not a real patient record
+
+Patient Name: Aarav Sharma
+Age: 42
+Sex: Male
+Report Date: 06-Apr-2026
+
+Chief Complaint: Fever for 4 days with dry cough, sore throat, fatigue, and mild shortness of breath on exertion.
+
+Medical History: Type 2 diabetes mellitus for 6 years and hypertension for 4 years. No known asthma or chronic kidney disease. Past dengue infection in 2022.
+
+Current Medications: Metformin 500 mg twice daily; Amlodipine 5 mg once daily; Paracetamol 500 mg as needed for fever.
+
+Allergies: Penicillin allergy reported with rash.
+
+Vitals: BP: 132/86 mmHg; Pulse: 104 bpm; Temp: 101.2 F; SpO2: 94%; Weight: 78 kg; RBS: 186 mg/dL.
+
+Lab Reports: WBC 13200/uL, CRP 28 mg/L, Hb 13.4 g/dL, Platelets 210000/uL, Creatinine 0.9 mg/dL.
+
+Diagnosis: Suspected acute respiratory tract infection with hyperglycemia risk due to diabetes.
+
+Doctor Comments: Recommend clinical correlation, hydration, antipyretic support, glucose monitoring, and review if SpO2 drops below 94% or breathlessness worsens.
