@@ -183,6 +183,6 @@ def predict_xray_disease(base64_image: str) -> dict:
 # Load model immediately when module is imported
 _loaded = _load_model()
 if _loaded:
-    print(f"✓ [XRay] Model loaded: {len(_class_names)} classes → {_class_names}")
+    print(f"[XRay] Model loaded: {len(_class_names)} classes -> {_class_names}")
 else:
-    print("⚠️  [XRay] Model weights not found — run train_xray_model.py first.")
+    print("[XRay] Model weights not found - run train_xray_model.py first.")

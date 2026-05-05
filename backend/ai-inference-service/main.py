@@ -145,10 +145,20 @@ async def add_patient_onboarding(
             warning = f"OCR unavailable: {ocr_error}"
 
         # 2. Parallel Persistence
-        await asyncio.gather(
+        persistence_results = await asyncio.gather(
             create_patient_node(patient_id, name, age, sex),
-            upsert_patient_context(patient_id, clinical_text)
+            upsert_patient_context(patient_id, clinical_text),
+            return_exceptions=True,
         )
+
+        warnings = [warning] if warning else []
+        for result in persistence_results:
+            if isinstance(result, Exception):
+                warnings.append(f"Persistence unavailable: {result}")
+                continue
+
+            if isinstance(result, dict) and result.get("warning"):
+                warnings.append(result["warning"])
 
         return {
             "success": True, 
@@ -158,7 +168,7 @@ async def add_patient_onboarding(
             "raw_text": clinical_text,
             "clinical_fields": clinical_fields,
             "ocr_engine": ocr_res.get("ocr_engine"),
-            "warning": warning
+            "warning": " | ".join(warnings) if warnings else None
         }
     except Exception as e:
         print(f"Onboarding Error: {e}")

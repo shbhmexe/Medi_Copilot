@@ -56,8 +56,14 @@ def _extract_text_from_image(client, image_content: bytes) -> str:
 
 
 def _render_pdf_pages(file_content: bytes) -> Iterable[bytes]:
+    global pdfium
+
     if pdfium is None:
-        raise RuntimeError("PDF OCR requires pypdfium2. Run pip install -r requirements.txt.")
+        try:
+            import pypdfium2 as loaded_pdfium
+            pdfium = loaded_pdfium
+        except ImportError:
+            raise RuntimeError("PDF OCR requires pypdfium2. Run pip install -r requirements.txt.")
 
     document = pdfium.PdfDocument(file_content)
     page_count = min(len(document), MAX_PDF_PAGES)

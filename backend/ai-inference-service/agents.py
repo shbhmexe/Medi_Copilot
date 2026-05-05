@@ -691,7 +691,7 @@ async def run_diagnostic_pipeline(clinical_context: str) -> AsyncGenerator[dict,
     extracted_drugs = extract_drugs_from_context(clinical_context)
 
     if ChatGroq is not None and PromptTemplate is not None and GROQ_API_KEY:
-        llm = ChatGroq(model="llama3-70b-8192", temperature=0.1)
+        llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.1)
 
         prompt = PromptTemplate.from_template('''
         You are an expert AI clinical decision support system (MedCoPilot).
@@ -762,7 +762,7 @@ async def run_diagnostic_pipeline(clinical_context: str) -> AsyncGenerator[dict,
 async def create_patient_node(patient_id: str, name: str, age: int, sex: str):
     """Creates or updates a Patient node in Neo4j."""
     if not driver:
-        return
+        return {"success": False, "warning": "Neo4j graph write skipped."}
     
     query = """
     MERGE (p:Patient {id: $pid})
@@ -772,14 +772,20 @@ async def create_patient_node(patient_id: str, name: str, age: int, sex: str):
         p.status = 'WAITING'
     RETURN p
     """
-    async with driver.session() as session:
-        await session.run(query, pid=patient_id, name=name, age=age, sex=sex)
+    try:
+        async with driver.session() as session:
+            await session.run(query, pid=patient_id, name=name, age=age, sex=sex)
+        return {"success": True}
+    except Exception as e:
+        message = str(e)
+        print(f"Neo4j Patient Write Error: {message}")
+        return {"success": False, "warning": "Neo4j graph write skipped because the database is unavailable."}
 
 
 async def upsert_patient_context(patient_id: str, clinical_text: str):
     """Embeds and stores clinical text into Qdrant for RAG."""
     if not qdrant_client or not clinical_text.strip():
-        return
+        return {"success": False, "warning": "Vector index write skipped."}
     
     collection_name = "patient_records"
     
@@ -790,8 +796,11 @@ async def upsert_patient_context(patient_id: str, clinical_text: str):
             metadata=[{"patient_id": patient_id}],
             ids=[str(uuid.uuid4())],
         )
+        return {"success": True}
     except Exception as e:
-        print(f"Qdrant Upsert Error: {e}")
+        message = str(e)
+        print(f"Qdrant Upsert Error: {message}")
+        return {"success": False, "warning": "Vector index write skipped because Qdrant is unavailable."}
 
 async def delete_patient(patient_id: str):
     """Deletes Patient from Neo4j and their embeddings from Qdrant."""
