@@ -1,0 +1,72 @@
+services:
+  - type: web
+    runtime: node
+    name: medcopilot-doctor
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start -- -p $PORT
+    healthCheckPath: /
+    disk:
+      name: medcopilot-doctor-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AI_INFERENCE_URL
+        sync: false
+      - key: AI_INFERENCE_SERVICE_URL
+        sync: false
+      - key: PATIENT_APP_URL
+        sync: false
+
+  - type: web
+    runtime: static
+    name: medcopilot-user
+    rootDir: user-healthcare-main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DOCTOR_APP_URL
+        sync: false
+
+  - type: web
+    runtime: docker
+    name: medcopilot-ai
+    dockerfilePath: backend/ai-inference-service/Dockerfile
+    dockerContext: backend/ai-inference-service
+    healthCheckPath: /health
+    envVars:
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USER
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: GOOGLE_VISION_API_KEY
+        sync: false

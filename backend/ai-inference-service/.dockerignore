@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+
+# Training/evaluation data is too large for production deploys.
+# Keep the trained artifacts in models/ instead.
+xray_prepared/
+
+# Local output/log noise
+.pytest_cache/
+*.log

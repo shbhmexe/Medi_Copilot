@@ -51,8 +51,8 @@ const PATIENT_INFO = {
   patientGender: 'Male',
 };
 
-// Target Next.js backend URL
-const CODEX_API_URL = 'http://localhost:3000';
+// Target Next.js doctor portal URL. Set DOCTOR_APP_URL in production.
+const CODEX_API_URL = (process.env.DOCTOR_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 export const AppointmentBooking = ({ isModal = false }: { isModal?: boolean }) => {
   const [selectedSpecialty, setSelectedSpecialty] = useState('General');

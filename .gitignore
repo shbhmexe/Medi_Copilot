@@ -37,6 +37,10 @@ yarn-error.log*
 __pycache__/
 *.py[cod]
 
+# ML training data and runtime logs should not be committed.
+backend/ai-inference-service/xray_prepared/
+backend/ai-inference-service/models/xray_request_log.json
+
 # vercel
 .vercel
 
