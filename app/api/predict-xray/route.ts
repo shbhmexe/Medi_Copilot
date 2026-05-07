@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const AI_URL = (process.env.AI_INFERENCE_URL ?? process.env.AI_INFERENCE_SERVICE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
+function resolveAiUrl() {
+  if (process.env.AI_INFERENCE_LOCAL_URL) {
+    return process.env.AI_INFERENCE_LOCAL_URL.replace(/\/+$/, "");
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "http://127.0.0.1:8000";
+  }
+
+  return (process.env.AI_INFERENCE_URL ?? process.env.AI_INFERENCE_SERVICE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
+}
+
+const AI_URL = resolveAiUrl();
 const XRAY_TIMEOUT_MS = 75_000;
 
 async function readJsonSafely(res: Response) {

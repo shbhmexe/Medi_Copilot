@@ -5,10 +5,23 @@ type PredictReportPayload = {
   input?: string;
 };
 
-const AI_SERVICE_URL =
-  process.env.AI_INFERENCE_URL ||
-  process.env.AI_INFERENCE_SERVICE_URL ||
-  "http://127.0.0.1:8000";
+function resolveAiServiceUrl() {
+  if (process.env.AI_INFERENCE_LOCAL_URL) {
+    return process.env.AI_INFERENCE_LOCAL_URL.replace(/\/+$/, "");
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "http://127.0.0.1:8000";
+  }
+
+  return (
+    process.env.AI_INFERENCE_URL ||
+    process.env.AI_INFERENCE_SERVICE_URL ||
+    "http://127.0.0.1:8000"
+  ).replace(/\/+$/, "");
+}
+
+const AI_SERVICE_URL = resolveAiServiceUrl();
 
 export async function POST(req: Request) {
   try {
@@ -22,7 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "No input provided" }, { status: 400 });
     }
 
-    const response = await fetch(`${AI_SERVICE_URL.replace(/\/+$/, "")}/ai/report-predict`, {
+    const response = await fetch(`${AI_SERVICE_URL}/ai/report-predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode, input }),
