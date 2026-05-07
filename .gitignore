@@ -47,3 +47,9 @@ backend/ai-inference-service/models/xray_request_log.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+/ml/*.pkl
+/ml/*.csv
+/ml/disease_keywords.json
+/data/patient-passes/*.json
