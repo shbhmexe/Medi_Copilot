@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const backendUrl = joinUrl(AI_INFERENCE_BASE_URL, "/ai/add-patient");
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), 90_000);
 
     console.log(`[API Gateway] Forwarding Patient Onboarding to ${backendUrl}...`);
 
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     const message =
       error instanceof Error && error.name === "AbortError"
-        ? "Timed out while reaching AI service at " + AI_INFERENCE_BASE_URL
+        ? "Timed out while extracting the clinical document. Handwritten or multi-page reports can take up to 90 seconds."
         : error instanceof Error
           ? error.message
           : "Unknown onboarding proxy error";

@@ -19,11 +19,6 @@ try:
 except ImportError:
     AsyncGraphDatabase = None
 
-try:
-    from qdrant_client import QdrantClient
-except ImportError:
-    QdrantClient = None
-
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
@@ -57,13 +52,19 @@ except Exception as e:
 # Initialize Qdrant Client (Live Database)
 QDRANT_URL = _get_env("QDRANT_URL")
 QDRANT_API_KEY = _get_env("QDRANT_API_KEY")
+ENABLE_QDRANT_RAG = os.getenv("ENABLE_QDRANT_RAG", "").lower() == "true"
 
 try:
-    if QdrantClient and QDRANT_URL and QDRANT_API_KEY:
+    if ENABLE_QDRANT_RAG and QDRANT_URL and QDRANT_API_KEY:
+        from qdrant_client import QdrantClient
+
         qdrant_client = QdrantClient(
             url=QDRANT_URL,
             api_key=QDRANT_API_KEY
         )
+    elif QDRANT_URL and QDRANT_API_KEY:
+        print("Qdrant RAG disabled by default to keep the AI service within memory limits.")
+        qdrant_client = None
     else:
         qdrant_client = None
 except Exception as e:
@@ -678,8 +679,13 @@ async def run_diagnostic_pipeline(clinical_context: str) -> AsyncGenerator[dict,
     Real LangChain-Groq multi-agent pipeline returning structured diagnostics via SSE events.
     """
     
-    # 1. Inform client we are searching Qdrant vector DB
-    yield {"event": "thinking", "data": json.dumps({"message": "RAG: Querying Qdrant fastembed vectors...", "step": 1})}
+    # 1. Inform client whether patient-record vector context is available.
+    rag_message = (
+        "RAG: Querying Qdrant vectors..."
+        if qdrant_client
+        else "RAG: Vector index disabled on this instance; using clinical context fallback..."
+    )
+    yield {"event": "thinking", "data": json.dumps({"message": rag_message, "step": 1})}
     await asyncio.sleep(0.5)
     
     # Fetch from Qdrant locally

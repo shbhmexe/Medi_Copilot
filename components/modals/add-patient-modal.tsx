@@ -36,8 +36,16 @@ export interface ClinicalFields {
   chief_complaint?: string;
   medical_history?: string;
   current_medications?: string;
+  provisional_diagnosis?: string;
+  advice?: string;
+  follow_up?: string;
   vitals?: Record<string, string>;
+  labs?: Array<{ parameter?: string; value?: string; unit?: string }>;
   document_excerpt?: string;
+  structured_summary?: string;
+  handwriting_notes?: string;
+  source_quality?: string;
+  confidence_score?: number;
 }
 
 interface Prediction {
@@ -170,6 +178,13 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
     } satisfies ClinicalFields;
   };
 
+  const updateClinicalField = useCallback((key: keyof ClinicalFields, value: string) => {
+    setClinicalFields((current) => ({
+      ...(current || {}),
+      [key]: value,
+    }));
+  }, []);
+
   const onDropDoc = useCallback((acceptedFiles: File[]) => {
     setFile(acceptedFiles[0]);
     toast.success("Clinical document attached");
@@ -240,7 +255,17 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
       
       const extractedText = typeof data.raw_text === "string" ? data.raw_text : "";
       setRawText(extractedText);
-      setClinicalFields(data.clinical_fields || null);
+      const extractedFields = data.clinical_fields || null;
+      setClinicalFields(extractedFields);
+
+      const suggestedComplaint =
+        extractedFields?.chief_complaint ||
+        extractedFields?.provisional_diagnosis ||
+        extractedFields?.structured_summary ||
+        "";
+      if (typeof suggestedComplaint === "string" && suggestedComplaint.trim()) {
+        setSymptomsInput(suggestedComplaint.trim());
+      }
       
       // Extract keywords silently
       if (extractedText.trim()) {
@@ -492,6 +517,68 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                         </motion.div>
                       )}
                     </div>
+
+                    {(clinicalFields || rawText.trim() || summary.trim()) && (
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-[#16a34a] uppercase tracking-widest">
+                              AI extracted fields
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Review and edit before analysis.
+                            </p>
+                          </div>
+                          {typeof clinicalFields?.confidence_score === "number" && (
+                            <span className="text-[10px] font-mono font-bold text-emerald-700 bg-white border border-emerald-100 rounded-lg px-2 py-1">
+                              {Math.round(clinicalFields.confidence_score * 100)}%
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Relevant History</span>
+                            <textarea
+                              value={clinicalFields?.medical_history || ""}
+                              onChange={(e) => updateClinicalField("medical_history", e.target.value)}
+                              placeholder="Past history, clinical history, allergies, comorbidities..."
+                              className="w-full min-h-20 bg-white border border-emerald-100 rounded-xl p-3 text-xs font-semibold text-slate-700 focus:border-[#16a34a] outline-none resize-none"
+                            />
+                          </label>
+
+                          <label className="space-y-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Medications</span>
+                            <textarea
+                              value={clinicalFields?.current_medications || ""}
+                              onChange={(e) => updateClinicalField("current_medications", e.target.value)}
+                              placeholder="Medicine name, dose, frequency, duration..."
+                              className="w-full min-h-16 bg-white border border-emerald-100 rounded-xl p-3 text-xs font-semibold text-slate-700 focus:border-[#16a34a] outline-none resize-none"
+                            />
+                          </label>
+
+                          {(clinicalFields?.provisional_diagnosis || clinicalFields?.advice || clinicalFields?.follow_up) && (
+                            <div className="grid grid-cols-1 gap-2 text-xs text-slate-600">
+                              {clinicalFields?.provisional_diagnosis && (
+                                <p><span className="font-bold text-slate-500">Diagnosis:</span> {clinicalFields.provisional_diagnosis}</p>
+                              )}
+                              {clinicalFields?.advice && (
+                                <p><span className="font-bold text-slate-500">Advice:</span> {clinicalFields.advice}</p>
+                              )}
+                              {clinicalFields?.follow_up && (
+                                <p><span className="font-bold text-slate-500">Follow-up:</span> {clinicalFields.follow_up}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {clinicalFields?.handwriting_notes && (
+                            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                              {clinicalFields.handwriting_notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block flex items-center justify-between">

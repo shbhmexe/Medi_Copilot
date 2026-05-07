@@ -68,5 +68,7 @@ services:
         sync: false
       - key: QDRANT_API_KEY
         sync: false
+      - key: ENABLE_QDRANT_RAG
+        value: "false"
       - key: GOOGLE_VISION_API_KEY
         sync: false

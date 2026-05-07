@@ -15,23 +15,28 @@ from sse_starlette.sse import EventSourceResponse
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from agents import (
-    run_diagnostic_pipeline,
-    create_patient_node,
-    upsert_patient_context,
-    delete_patient,
-    canonicalize_drug_name,
-    check_drug_interactions,
-    search_drug_catalog,
-    build_checker_fallback_interactions,
-    ensure_drug_graph_seeded,
-    get_drug_graph_stats,
-    driver,
-)
-from analytics import get_forecast as build_forecast
-from ocr import process_lab_report
-from report_inference import predict_report
-import xray_inference as xray_engine
+_agents_module = None
+_xray_engine = None
+
+
+def get_agents():
+    global _agents_module
+
+    if _agents_module is None:
+        import agents as loaded_agents
+        _agents_module = loaded_agents
+
+    return _agents_module
+
+
+def get_xray_engine():
+    global _xray_engine
+
+    if _xray_engine is None:
+        import xray_inference as loaded_xray_engine
+        _xray_engine = loaded_xray_engine
+
+    return _xray_engine
 
 XRAY_LOG_FILE = Path(__file__).parent / "models" / "xray_request_log.json"
 xray_warmup_task: asyncio.Task | None = None
@@ -49,6 +54,7 @@ async def _warm_xray_model() -> None:
 
     try:
         print("[XRay] Background warmup beginning...")
+        xray_engine = get_xray_engine()
         info = await asyncio.to_thread(xray_engine.get_model_info)
         if info.get("loaded"):
             print(
@@ -70,6 +76,7 @@ async def _warm_xray_model() -> None:
 def start_xray_warmup() -> None:
     global xray_warmup_task
 
+    xray_engine = get_xray_engine()
     if xray_engine.model_loaded():
         return
 
@@ -95,20 +102,15 @@ def xray_warmup_status() -> dict:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    start_xray_warmup()
-
-    try:
-        await ensure_drug_graph_seeded()
-    except Exception as e:
-        print(f"Neo4j warmup error: {e}")
+    print("[startup] Lightweight startup enabled; ML/graph clients load on demand.")
 
     yield
 
     if xray_warmup_task and not xray_warmup_task.done():
         xray_warmup_task.cancel()
 
-    if driver:
-        await driver.close()
+    if _agents_module is not None and getattr(_agents_module, "driver", None):
+        await _agents_module.driver.close()
 
 
 app = FastAPI(title="MedCoPilot AI Inference Service", lifespan=lifespan)
@@ -138,10 +140,11 @@ async def analyze_visit(request: AnalyzeRequest):
     """
     async def event_generator():
         try:
+            agents = get_agents()
             yield {"event": "thinking", "data": json.dumps({"message": "Connecting to AI inference engine...", "step": 1})}
             await asyncio.sleep(0.5)
             
-            async for event in run_diagnostic_pipeline(request.clinical_context):
+            async for event in agents.run_diagnostic_pipeline(request.clinical_context):
                 yield event
                 
             yield {"event": "complete", "data": json.dumps({"visit_id": request.visit_id})}
@@ -158,6 +161,7 @@ async def get_forecast(topic: str = "General Patient Volume", days: int = 30):
     Returns AI predictive forecasting bounds when a forecasting backend is connected.
     """
     try:
+        from analytics import get_forecast as build_forecast
         data = build_forecast(disease_topic=topic, days_ahead=days)
         return {"success": True, "data": data}
     except Exception as e:
@@ -169,8 +173,9 @@ async def ocr_upload(file: UploadFile = File(...)):
     Accepts a medical document upload and extracts text with Google Vision OCR.
     """
     try:
+        from ocr import process_lab_report
         content = await file.read()
-        res = process_lab_report(file_name=file.filename, file_content=content)
+        res = await asyncio.to_thread(process_lab_report, file_name=file.filename, file_content=content)
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -194,24 +199,28 @@ async def add_patient_onboarding(
         warning = None
         
         # 1. OCR Extraction
-        ocr_res = process_lab_report(file_name=file.filename, file_content=content)
+        from ocr import process_lab_report
+        ocr_res = await asyncio.to_thread(process_lab_report, file_name=file.filename, file_content=content)
         if ocr_res.get("success"):
             clinical_text = ocr_res.get("raw_text", "No clinical text found")
             summary = ocr_res.get("ai_summary")
             document_id = ocr_res.get("document_id")
             clinical_fields = ocr_res.get("clinical_fields", {})
+            confidence_score = ocr_res.get("confidence_score")
         else:
             ocr_error = ocr_res.get("error", "OCR extraction unavailable")
             clinical_text = ""
             summary = "Document uploaded, but OCR could not extract clinical text."
             document_id = str(uuid.uuid4())
             clinical_fields = {}
+            confidence_score = None
             warning = f"OCR unavailable: {ocr_error}"
 
         # 2. Parallel Persistence
+        agents = get_agents()
         persistence_results = await asyncio.gather(
-            create_patient_node(patient_id, name, age, sex),
-            upsert_patient_context(patient_id, clinical_text),
+            agents.create_patient_node(patient_id, name, age, sex),
+            agents.upsert_patient_context(patient_id, clinical_text),
             return_exceptions=True,
         )
 
@@ -231,6 +240,7 @@ async def add_patient_onboarding(
             "document_id": document_id,
             "raw_text": clinical_text,
             "clinical_fields": clinical_fields,
+            "confidence_score": confidence_score,
             "ocr_engine": ocr_res.get("ocr_engine"),
             "warning": " | ".join(warnings) if warnings else None
         }
@@ -243,7 +253,8 @@ async def remove_patient_data(patient_id: str):
     """
     Deletes patient record from Neo4j and Qdrant.
     """
-    res = await delete_patient(patient_id)
+    agents = get_agents()
+    res = await agents.delete_patient(patient_id)
     if not res.get("success"):
         raise HTTPException(status_code=500, detail=res.get("error"))
     return {"success": True, "message": "Patient data deleted"}
@@ -252,7 +263,8 @@ async def remove_patient_data(patient_id: str):
 @app.get("/ai/drugs/search")
 async def search_drugs_endpoint(q: str = "", limit: int = 10):
     try:
-        matches = await search_drug_catalog(q, limit=min(max(limit, 1), 20))
+        agents = get_agents()
+        matches = await agents.search_drug_catalog(q, limit=min(max(limit, 1), 20))
         return {"success": True, "data": matches}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -261,11 +273,12 @@ async def search_drugs_endpoint(q: str = "", limit: int = 10):
 @app.post("/ai/drugs/check")
 async def check_drug_interactions_endpoint(request: DrugCheckRequest):
     try:
-        graph_status = await ensure_drug_graph_seeded()
+        agents = get_agents()
+        graph_status = await agents.ensure_drug_graph_seeded()
         drugs = []
         seen: set[str] = set()
         for drug in request.drugs:
-            name = canonicalize_drug_name(drug)
+            name = agents.canonicalize_drug_name(drug)
             if not name:
                 continue
             key = name.lower()
@@ -277,11 +290,11 @@ async def check_drug_interactions_endpoint(request: DrugCheckRequest):
         if len(drugs) < 2:
             raise HTTPException(status_code=400, detail="At least two drugs are required")
 
-        interactions = await check_drug_interactions(drugs)
+        interactions = await agents.check_drug_interactions(drugs)
         source = "neo4j" if graph_status["connected"] else "fallback"
 
         if not interactions and not graph_status["connected"]:
-            interactions = build_checker_fallback_interactions(drugs)
+            interactions = agents.build_checker_fallback_interactions(drugs)
             source = "fallback"
 
         pair_count = len(drugs) * (len(drugs) - 1) // 2
@@ -309,7 +322,8 @@ async def check_drug_interactions_endpoint(request: DrugCheckRequest):
 @app.get("/ai/drugs/status")
 async def drug_graph_status_endpoint():
     try:
-        stats = await get_drug_graph_stats()
+        agents = get_agents()
+        stats = await agents.get_drug_graph_stats()
         return {"success": True, "data": stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -331,6 +345,7 @@ async def report_predict(request: ReportPredictRequest):
         raise HTTPException(status_code=400, detail="No input provided")
 
     try:
+        from report_inference import predict_report
         result = predict_report(request.mode, request.input)
         return {"success": True, "source": "trained_symptom_model", **result}
     except ValueError as e:
@@ -347,6 +362,7 @@ async def xray_predict(request: XRayRequest):
     """
     import datetime
 
+    xray_engine = get_xray_engine()
     if not xray_engine.model_loaded():
         start_xray_warmup()
         if xray_warmup_task and not xray_warmup_task.done():
@@ -395,6 +411,7 @@ async def xray_health():
     Demo proof-of-work endpoint: returns model loading status, architecture,
     parameter count, and training metrics.
     """
+    xray_engine = get_xray_engine()
     if not xray_engine.model_loaded():
         start_xray_warmup()
 

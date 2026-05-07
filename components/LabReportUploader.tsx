@@ -19,7 +19,20 @@ interface OcrResult {
   document_type: string;
   extracted_biomarkers: Biomarker[];
   ai_summary: string;
-  confidence_score: number;
+  raw_text?: string;
+  clinical_fields?: {
+    chief_complaint?: string;
+    medical_history?: string;
+    current_medications?: string;
+    provisional_diagnosis?: string;
+    advice?: string;
+    follow_up?: string;
+    handwriting_notes?: string;
+    source_quality?: string;
+    vitals?: Record<string, string>;
+  };
+  confidence_score?: number | null;
+  ocr_engine?: string;
 }
 
 type UploadState = "idle" | "dragging" | "uploading" | "success" | "error";
@@ -220,16 +233,43 @@ export default function LabReportUploader({ patientId }: { patientId: string }) 
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full">
-                  {(ocrResult.confidence_score * 100).toFixed(0)}% confidence
-                </span>
+                {typeof ocrResult.confidence_score === "number" && (
+                  <span className="text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full">
+                    {(ocrResult.confidence_score * 100).toFixed(0)}% confidence
+                  </span>
+                )}
                 <button onClick={reset} className="text-medcopilot-text-muted hover:text-white transition-colors">
                   <X size={18} />
                 </button>
               </div>
             </div>
 
+            {ocrResult.clinical_fields && (
+              <div className="rounded-xl border border-medcopilot-border-subtle bg-white/[0.02] p-4 space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-medcopilot-text-muted">Structured Clinical Fields</p>
+                {[
+                  ["Chief Complaint", ocrResult.clinical_fields.chief_complaint],
+                  ["History", ocrResult.clinical_fields.medical_history],
+                  ["Medications", ocrResult.clinical_fields.current_medications],
+                  ["Diagnosis", ocrResult.clinical_fields.provisional_diagnosis],
+                  ["Advice", ocrResult.clinical_fields.advice],
+                  ["Follow-up", ocrResult.clinical_fields.follow_up],
+                ].filter(([, value]) => value).map(([label, value]) => (
+                  <div key={label} className="text-xs">
+                    <span className="font-bold text-medcopilot-text-secondary">{label}: </span>
+                    <span className="text-medcopilot-text-muted">{value}</span>
+                  </div>
+                ))}
+                {ocrResult.clinical_fields.handwriting_notes && (
+                  <p className="text-xs text-amber-300 border border-amber-500/20 bg-amber-500/10 rounded-lg p-3">
+                    {ocrResult.clinical_fields.handwriting_notes}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Biomarkers Grid */}
+            {ocrResult.extracted_biomarkers.length > 0 && (
             <div className="grid grid-cols-1 gap-2">
               {ocrResult.extracted_biomarkers.map((marker, i) => {
                 const cfg = flagConfig[marker.flag];
@@ -260,6 +300,7 @@ export default function LabReportUploader({ patientId }: { patientId: string }) 
                 );
               })}
             </div>
+            )}
 
             {/* Document ID */}
             <p className="text-[10px] font-mono text-medcopilot-text-muted/50 text-right">

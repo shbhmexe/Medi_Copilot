@@ -9,20 +9,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "No file uploaded" }, { status: 400 });
     }
 
-    const backendUrl = process.env.AI_INFERENCE_URL || "http://127.0.0.1:8000";
+    const backendUrl =
+      process.env.AI_INFERENCE_URL ||
+      process.env.AI_INFERENCE_SERVICE_URL ||
+      "http://127.0.0.1:8000";
     console.log(`[API Gateway] Sending file ${file.name} to ${backendUrl}/ai/ocr`);
 
     // Forward the multipart form data request to the Python backend
     const backendFormData = new FormData();
     backendFormData.append("file", file);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+
     const res = await fetch(`${backendUrl}/ai/ocr`, {
       method: "POST",
       body: backendFormData,
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
 
     if (!res.ok) {
-        throw new Error(`Python backend responded with status: ${res.status}`);
+      const text = await res.text();
+      throw new Error(text || `Python backend responded with status: ${res.status}`);
     }
 
     const data = await res.json();
