@@ -34,15 +34,78 @@ from report_inference import predict_report
 import xray_inference as xray_engine
 
 XRAY_LOG_FILE = Path(__file__).parent / "models" / "xray_request_log.json"
+xray_warmup_task: asyncio.Task | None = None
+xray_warmup_started_at: float | None = None
+xray_warmup_finished_at: float | None = None
+xray_warmup_error: str | None = None
+
+
+async def _warm_xray_model() -> None:
+    global xray_warmup_started_at, xray_warmup_finished_at, xray_warmup_error
+
+    xray_warmup_started_at = time.time()
+    xray_warmup_finished_at = None
+    xray_warmup_error = None
+
+    try:
+        print("[XRay] Background warmup beginning...")
+        info = await asyncio.to_thread(xray_engine.get_model_info)
+        if info.get("loaded"):
+            print(
+                "[XRay] Background warmup complete: "
+                f"{info.get('architecture')} on {info.get('device')} "
+                f"with {info.get('num_classes')} classes."
+            )
+            return
+
+        xray_warmup_error = info.get("error") or "X-ray model did not load."
+        print(f"[XRay] Background warmup failed: {xray_warmup_error}")
+    except Exception as e:
+        xray_warmup_error = str(e)
+        print(f"[XRay] Background warmup error: {e}")
+    finally:
+        xray_warmup_finished_at = time.time()
+
+
+def start_xray_warmup() -> None:
+    global xray_warmup_task
+
+    if xray_engine.model_loaded():
+        return
+
+    if xray_warmup_task and not xray_warmup_task.done():
+        return
+
+    xray_warmup_task = asyncio.create_task(_warm_xray_model())
+
+
+def xray_warmup_status() -> dict:
+    running = bool(xray_warmup_task and not xray_warmup_task.done())
+    elapsed = None
+    if xray_warmup_started_at is not None:
+        end = time.time() if running else (xray_warmup_finished_at or time.time())
+        elapsed = round(end - xray_warmup_started_at, 1)
+
+    return {
+        "running": running,
+        "started": xray_warmup_started_at is not None,
+        "elapsed_seconds": elapsed,
+        "error": xray_warmup_error,
+    }
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    start_xray_warmup()
+
     try:
         await ensure_drug_graph_seeded()
     except Exception as e:
         print(f"Neo4j warmup error: {e}")
 
     yield
+
+    if xray_warmup_task and not xray_warmup_task.done():
+        xray_warmup_task.cancel()
 
     if driver:
         await driver.close()
@@ -283,6 +346,16 @@ async def xray_predict(request: XRayRequest):
     classification: NORMAL / BACTERIAL_PNEUMONIA / VIRAL_PNEUMONIA.
     """
     import datetime
+
+    if not xray_engine.model_loaded():
+        start_xray_warmup()
+        if xray_warmup_task and not xray_warmup_task.done():
+            raise HTTPException(
+                status_code=503,
+                detail="X-ray model is still warming up on the AI service. Retry in a few seconds.",
+                headers={"Retry-After": "10"},
+            )
+
     t_start = time.time()
 
     result = xray_engine.predict_xray_disease(request.image)
@@ -322,7 +395,11 @@ async def xray_health():
     Demo proof-of-work endpoint: returns model loading status, architecture,
     parameter count, and training metrics.
     """
-    info = xray_engine.get_model_info()
+    if not xray_engine.model_loaded():
+        start_xray_warmup()
+
+    info = xray_engine.get_model_info(load=xray_engine.model_loaded())
+    info["warmup"] = xray_warmup_status()
     return {"success": True, "data": info}
 
 

@@ -13,7 +13,7 @@ function resolveAiUrl() {
 }
 
 const AI_URL = resolveAiUrl();
-const XRAY_TIMEOUT_MS = 75_000;
+const XRAY_TIMEOUT_MS = 180_000;
 
 async function readJsonSafely(res: Response) {
   const text = await res.text();
@@ -22,7 +22,12 @@ async function readJsonSafely(res: Response) {
   try {
     return JSON.parse(text);
   } catch {
-    return { detail: text };
+    const snippet = text.replace(/\s+/g, " ").trim().slice(0, 240);
+    return {
+      error:
+        "AI backend returned a non-JSON response. Check that AI_INFERENCE_URL points to the FastAPI service, not the web app.",
+      detail: snippet,
+    };
   }
 }
 
@@ -42,6 +47,9 @@ export async function POST(req: NextRequest) {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), XRAY_TIMEOUT_MS);
+    const startedAt = Date.now();
+
+    console.log(`[predict-xray proxy] Forwarding X-Ray request to ${AI_URL}/ai/xray-predict`);
 
     const upstream = await fetch(`${AI_URL}/ai/xray-predict`, {
       method: "POST",
@@ -51,10 +59,21 @@ export async function POST(req: NextRequest) {
     }).finally(() => clearTimeout(timeout));
 
     const data = await readJsonSafely(upstream);
+    console.log(
+      `[predict-xray proxy] Upstream responded with HTTP ${upstream.status} in ${Date.now() - startedAt}ms`
+    );
 
     if (!upstream.ok) {
-      const error = data?.detail || data?.error || `X-Ray ML backend returned HTTP ${upstream.status}`;
+      const error = data?.error || data?.detail || `X-Ray ML backend returned HTTP ${upstream.status}`;
       return NextResponse.json({ success: false, error }, { status: upstream.status });
+    }
+
+    if (!data?.success) {
+      const error =
+        data?.error ||
+        data?.detail ||
+        "X-Ray ML backend returned an invalid response. Check the AI service URL and deployment logs.";
+      return NextResponse.json({ success: false, error }, { status: 502 });
     }
 
     return NextResponse.json(data);
@@ -64,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     if (imagePayload) {
       const reason = err instanceof Error && err.name === "AbortError"
-        ? `X-Ray ML backend timed out after ${XRAY_TIMEOUT_MS / 1000}s. Start/redeploy the AI service and retry.`
+        ? `X-Ray ML backend timed out after ${XRAY_TIMEOUT_MS / 1000}s. Open ${AI_URL}/ai/xray-health once, then retry.`
         : `Failed to connect to X-Ray ML backend at ${AI_URL}. Start the AI service and retry.`;
 
       return NextResponse.json({ success: false, error: reason }, { status: 504 });
@@ -77,7 +96,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8_000);
+    const timeout = setTimeout(() => controller.abort(), 120_000);
     const upstream = await fetch(`${AI_URL}/ai/xray-health`, { signal: controller.signal }).finally(() => clearTimeout(timeout));
     const data = await readJsonSafely(upstream);
     return NextResponse.json(data);

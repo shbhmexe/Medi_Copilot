@@ -51,7 +51,7 @@ const rankColors = [
   "ring-slate-500/30 bg-white/[0.02]",
 ];
 
-const XRAY_CLIENT_TIMEOUT_MS = 85_000;
+const XRAY_CLIENT_TIMEOUT_MS = 210_000;
 
 export default function ReportAnalyzer({
   onConsensus,
@@ -202,13 +202,46 @@ export default function ReportAnalyzer({
           const b64 = (e.target?.result as string).split(",")[1];
           const controller = new AbortController();
           const timeout = window.setTimeout(() => controller.abort(), XRAY_CLIENT_TIMEOUT_MS);
-          const res = await fetch("/api/predict-xray", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: b64 }),
-            signal: controller.signal,
-          }).finally(() => window.clearTimeout(timeout));
-          const data = await res.json();
+          const requestBody = JSON.stringify({ image: b64 });
+          const buildHeaders = (token: string | null) => ({
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          });
+          const runRequest = (token: string | null) =>
+            fetch("/api/predict-xray", {
+              method: "POST",
+              headers: buildHeaders(token),
+              credentials: "include",
+              body: requestBody,
+              signal: controller.signal,
+            });
+
+          let res: Response;
+
+          try {
+            res = await runRequest(accessToken);
+
+            if (res.status === 401 && user) {
+              const refreshRes = await fetch("/api/auth/refresh", {
+                method: "POST",
+                credentials: "include",
+              });
+              const refreshData = await refreshRes.json().catch(() => ({}));
+              const refreshedToken =
+                typeof refreshData?.data?.access_token === "string"
+                  ? refreshData.data.access_token
+                  : null;
+
+              if (refreshRes.ok && refreshedToken) {
+                setUser(user, refreshedToken);
+                res = await runRequest(refreshedToken);
+              }
+            }
+          } finally {
+            window.clearTimeout(timeout);
+          }
+
+          const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.success) {
             const errDetail = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error ?? `Server error ${res.status}`);
             throw new Error(errDetail);
@@ -223,7 +256,7 @@ export default function ReportAnalyzer({
           }
         } catch (err: unknown) {
           const msg = err instanceof Error && err.name === "AbortError"
-            ? "X-Ray request timed out. Start/redeploy the ML backend and retry after it finishes loading the model."
+            ? "X-Ray request timed out. Open the AI service health URL once, then retry after the model finishes loading."
             : err instanceof Error ? err.message : String(err);
           setXrayError(msg);
           setXrayStatus("error");
