@@ -30,6 +30,7 @@ from agents import (
 )
 from analytics import get_forecast as build_forecast
 from ocr import process_lab_report
+from report_inference import predict_report
 import xray_inference as xray_engine
 
 XRAY_LOG_FILE = Path(__file__).parent / "models" / "xray_request_log.json"
@@ -252,6 +253,27 @@ async def drug_graph_status_endpoint():
 
 class XRayRequest(BaseModel):
     image: str   # base64-encoded PNG or JPG
+
+
+class ReportPredictRequest(BaseModel):
+    mode: str
+    input: str
+
+
+@app.post("/ai/report-predict")
+async def report_predict(request: ReportPredictRequest):
+    if request.mode not in {"text", "image"}:
+        raise HTTPException(status_code=400, detail="mode must be text or image")
+    if not request.input.strip():
+        raise HTTPException(status_code=400, detail="No input provided")
+
+    try:
+        result = predict_report(request.mode, request.input)
+        return {"success": True, "source": "trained_symptom_model", **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/ai/xray-predict")
