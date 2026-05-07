@@ -43,21 +43,32 @@ ICD11 = {
     "Varicose Veins": "BD90",
 }
 
-try:
-    TFIDF = joblib.load(ML_DIR / "tfidf_vectorizer.pkl")
-    MODEL = joblib.load(ML_DIR / "symptom_nlp_model.pkl")
-    LE = joblib.load(ML_DIR / "label_encoder.pkl")
-    with open(ML_DIR / "disease_keywords.json", "r", encoding="utf-8") as f:
-        DISEASE_KEYWORDS = json.load(f)
-    MODELS_LOADED = True
-    LOAD_ERROR = ""
-except Exception as e:
-    TFIDF = None
-    MODEL = None
-    LE = None
-    DISEASE_KEYWORDS = {}
-    MODELS_LOADED = False
-    LOAD_ERROR = str(e)
+TFIDF = None
+MODEL = None
+LE = None
+DISEASE_KEYWORDS = {}
+MODELS_LOADED = False
+LOAD_ERROR = ""
+
+
+def load_models() -> bool:
+    global TFIDF, MODEL, LE, DISEASE_KEYWORDS, MODELS_LOADED, LOAD_ERROR
+
+    if MODELS_LOADED:
+        return True
+
+    try:
+        TFIDF = joblib.load(ML_DIR / "tfidf_vectorizer.pkl")
+        MODEL = joblib.load(ML_DIR / "symptom_nlp_model.pkl")
+        LE = joblib.load(ML_DIR / "label_encoder.pkl")
+        with open(ML_DIR / "disease_keywords.json", "r", encoding="utf-8") as f:
+            DISEASE_KEYWORDS = json.load(f)
+        MODELS_LOADED = True
+        LOAD_ERROR = ""
+        return True
+    except Exception as e:
+        LOAD_ERROR = str(e)
+        return False
 
 
 def clean_text(raw: str) -> str:
@@ -95,7 +106,7 @@ def compute_matched_keywords(input_text: str, top_diseases: list[dict]) -> dict[
 
 
 def predict_text(text: str) -> dict:
-    if not MODELS_LOADED:
+    if not load_models():
         raise RuntimeError(f"Models not loaded: {LOAD_ERROR}")
 
     cleaned = clean_text(text)
