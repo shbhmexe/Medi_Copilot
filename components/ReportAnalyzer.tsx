@@ -51,7 +51,7 @@ const rankColors = [
   "ring-slate-500/30 bg-white/[0.02]",
 ];
 
-const XRAY_CLIENT_TIMEOUT_MS = 35_000;
+const XRAY_CLIENT_TIMEOUT_MS = 85_000;
 
 export default function ReportAnalyzer({
   onConsensus,
@@ -223,7 +223,7 @@ export default function ReportAnalyzer({
           }
         } catch (err: unknown) {
           const msg = err instanceof Error && err.name === "AbortError"
-            ? "X-Ray request timed out. Please try a smaller JPG/PNG or retry after the AI service wakes up."
+            ? "X-Ray request timed out. Start/redeploy the ML backend and retry after it finishes loading the model."
             : err instanceof Error ? err.message : String(err);
           setXrayError(msg);
           setXrayStatus("error");

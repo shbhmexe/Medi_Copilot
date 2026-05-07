@@ -1,45 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const AI_URL = (process.env.AI_INFERENCE_URL ?? process.env.AI_INFERENCE_SERVICE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
-const XRAY_TIMEOUT_MS = 22_000;
-
-function buildXrayFallback(base64Image: string, reason: string) {
-  const bytes = Buffer.from(base64Image.slice(0, 80_000), "base64");
-  const sample = bytes.length ? bytes : Buffer.from(base64Image);
-  const avg =
-    sample.length > 0
-      ? sample.reduce((sum, byte) => sum + byte, 0) / sample.length
-      : 128;
-
-  const topClass =
-    avg > 142
-      ? "NORMAL"
-      : avg < 96
-        ? "BACTERIAL_PNEUMONIA"
-        : "VIRAL_PNEUMONIA";
-
-  const topConfidence = topClass === "NORMAL" ? 64.2 : topClass === "BACTERIAL_PNEUMONIA" ? 61.8 : 59.6;
-  const remaining = Number(((100 - topConfidence) / 2).toFixed(1));
-  const probabilities = [
-    { class: "NORMAL", probability: topClass === "NORMAL" ? topConfidence : remaining },
-    { class: "BACTERIAL_PNEUMONIA", probability: topClass === "BACTERIAL_PNEUMONIA" ? topConfidence : remaining },
-    { class: "VIRAL_PNEUMONIA", probability: topClass === "VIRAL_PNEUMONIA" ? topConfidence : remaining },
-  ].sort((a, b) => b.probability - a.probability);
-
-  return {
-    success: true,
-    data: {
-      top_class: topClass,
-      top_confidence: topConfidence,
-      all_probabilities: probabilities,
-      low_confidence: true,
-      warning: `X-Ray AI service fallback used: ${reason}. Treat this as a low-confidence screening signal only.`,
-      processing_ms: 0,
-      error: null,
-      source: "fallback_image_signal",
-    },
-  };
-}
+const XRAY_TIMEOUT_MS = 75_000;
 
 async function readJsonSafely(res: Response) {
   const text = await res.text();
@@ -79,7 +41,8 @@ export async function POST(req: NextRequest) {
     const data = await readJsonSafely(upstream);
 
     if (!upstream.ok) {
-      return NextResponse.json(buildXrayFallback(imagePayload, data?.detail ?? `AI backend HTTP ${upstream.status}`));
+      const error = data?.detail || data?.error || `X-Ray ML backend returned HTTP ${upstream.status}`;
+      return NextResponse.json({ success: false, error }, { status: upstream.status });
     }
 
     return NextResponse.json(data);
@@ -89,10 +52,10 @@ export async function POST(req: NextRequest) {
 
     if (imagePayload) {
       const reason = err instanceof Error && err.name === "AbortError"
-        ? `AI backend timed out after ${XRAY_TIMEOUT_MS / 1000}s`
-        : "Failed to connect to AI inference service";
+        ? `X-Ray ML backend timed out after ${XRAY_TIMEOUT_MS / 1000}s. Start/redeploy the AI service and retry.`
+        : `Failed to connect to X-Ray ML backend at ${AI_URL}. Start the AI service and retry.`;
 
-      return NextResponse.json(buildXrayFallback(imagePayload, reason));
+      return NextResponse.json({ success: false, error: reason }, { status: 504 });
     }
 
     return NextResponse.json({ success: false, error: "Failed to connect to AI inference service." }, { status: 502 });
