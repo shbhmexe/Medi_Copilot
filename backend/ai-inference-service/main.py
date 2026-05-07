@@ -357,8 +357,9 @@ async def report_predict(request: ReportPredictRequest):
 @app.post("/ai/xray-predict")
 async def xray_predict(request: XRayRequest):
     """
-    Accepts a base64-encoded chest X-ray image and returns a 3-class
-    classification: NORMAL / BACTERIAL_PNEUMONIA / VIRAL_PNEUMONIA.
+    Accepts a base64-encoded chest X-ray image. The local 3-class pneumonia
+    model stays unchanged, then optional HF broad-disease/TB models enrich the
+    visible findings when configured.
     """
     import datetime
 
@@ -375,6 +376,21 @@ async def xray_predict(request: XRayRequest):
     t_start = time.time()
 
     result = xray_engine.predict_xray_disease(request.image)
+    if not (result.get("error") and result.get("top_class") is None):
+        try:
+            from hf_xray_inference import build_xray_diagnostic_result
+            result = await asyncio.to_thread(build_xray_diagnostic_result, request.image, result)
+        except Exception as fusion_err:
+            print(f"[xray fusion] Failed to enrich X-ray result: {fusion_err}")
+            result = {
+                **result,
+                "display_findings": [],
+                "status_class": "uncertain" if result.get("low_confidence") else "local_only",
+                "summary_label": str(result.get("top_class") or "X-ray result").replace("_", " ").title(),
+                "summary_text": "Local pneumonia model completed, but broad/TB enrichment was unavailable.",
+                "external_models": {},
+                "warnings": [f"Broad/TB enrichment unavailable: {fusion_err}"],
+            }
 
     processing_ms = round((time.time() - t_start) * 1000, 1)
 
@@ -385,6 +401,12 @@ async def xray_predict(request: XRayRequest):
             "top_class": result.get("top_class"),
             "top_confidence": result.get("top_confidence"),
             "low_confidence": result.get("low_confidence"),
+            "summary_label": result.get("summary_label"),
+            "display_findings": [
+                finding.get("label")
+                for finding in result.get("display_findings", [])
+                if isinstance(finding, dict)
+            ],
             "processing_ms": processing_ms,
             "error": result.get("error"),
         }
@@ -417,6 +439,11 @@ async def xray_health():
 
     info = xray_engine.get_model_info(load=xray_engine.model_loaded())
     info["warmup"] = xray_warmup_status()
+    try:
+        from hf_xray_inference import get_external_xray_info
+        info["external_models"] = get_external_xray_info()
+    except Exception as e:
+        info["external_models"] = {"error": str(e)}
     return {"success": True, "data": info}
 
 

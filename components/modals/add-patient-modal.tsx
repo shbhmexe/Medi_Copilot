@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
+import {
+  getXrayDisplayFindings,
+  getXraySummaryLabel,
+  getXrayToneClasses,
+} from "@/lib/xray-display";
 
 export interface OnboardingSuccessPayload {
   patientId: string;
@@ -326,7 +331,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
       }
 
       if (xrayFile) {
-        setProcessingStatus("Running MobileNetV2 on X-Ray...");
+        setProcessingStatus("Running pneumonia subtype and broad X-Ray checks...");
         xrayImageBase64 = await fileToBase64Payload(xrayFile);
         
         const res = await fetch("/api/predict-xray", {
@@ -627,27 +632,34 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                   </div>
                  ) : null}
 
-                 {xrayResult && (
-                  <div className={`border rounded-2xl p-5 text-left ${
-                    xrayResult.top_class === "NORMAL" ? "bg-emerald-50 border-emerald-200" 
-                    : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "bg-amber-50 border-amber-200" 
-                    : "bg-red-50 border-red-200"
-                  }`}>
-                    <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex flex-row items-center gap-2">
+                 {xrayResult && (() => {
+                  const tone = getXrayToneClasses(xrayResult);
+                  const findings = getXrayDisplayFindings(xrayResult);
+                  const abnormalFindings = findings.filter((finding) => finding.category !== "normal");
+
+                  return (
+                  <div className={`border rounded-2xl p-5 text-left ${tone.card}`}>
+                    <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex flex-row items-center gap-2">
                        <Stethoscope size={12}/> X-Ray Verdict
                     </h5>
-                    <div className="flex justify-between items-center">
-                       <p className={`text-sm font-bold ${
-                          xrayResult.top_class === "NORMAL" ? "text-emerald-700" 
-                          : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "text-amber-700" 
-                          : "text-red-700"
-                       }`}>
-                          {xrayResult.top_class.replace("_", " ")}
-                       </p>
-                       <p className="text-xs font-mono font-bold text-slate-600">{xrayResult.top_confidence.toFixed(1)}%</p>
+                    <div className="flex justify-between items-start gap-4">
+                       <div>
+                         <p className={`text-sm font-bold ${tone.text}`}>{getXraySummaryLabel(xrayResult)}</p>
+                         {findings.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {findings.slice(0, 4).map((finding) => (
+                              <span key={`${finding.source}-${finding.label}`} className="rounded-lg bg-white/70 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                                {finding.label}
+                              </span>
+                            ))}
+                          </div>
+                         )}
+                       </div>
+                       <p className={`text-xs font-mono font-bold ${tone.text}`}>{abnormalFindings.length} findings</p>
                     </div>
                   </div>
-                 )}
+                  );
+                 })()}
 
                  <button
                    onClick={() => {

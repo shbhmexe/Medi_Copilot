@@ -72,3 +72,49 @@ services:
         value: "false"
       - key: GOOGLE_VISION_API_KEY
         sync: false
+      - key: ENABLE_HF_XRAY
+        value: "true"
+      - key: HF_TOKEN
+        sync: false
+      - key: HF_BROAD_XRAY_MODEL
+        value: torchxrayvision/densenet121-res224-all
+      - key: HF_TB_XRAY_MODEL
+        value: JetX-GT/hades-hellix-tb-linear-probe
+      - key: HF_BROAD_XRAY_ENDPOINT_URL
+        sync: false
+      - key: HF_TB_XRAY_ENDPOINT_URL
+        sync: false
+      - key: HF_ALLOW_MODEL_API_FALLBACK
+        value: "true"
+      - key: HF_INFERENCE_BASE_URL
+        value: https://router.huggingface.co/hf-inference/models
+      - key: ENABLE_HF_SPACE_XRAY
+        value: "true"
+      - key: HF_BROAD_XRAY_SPACE_URL
+        value: https://itsomk-multilabel-chestxray-gradcam.hf.space
+      - key: HF_BROAD_XRAY_SPACE_API_NAME
+        value: analyze_and_prepare_download
+      - key: HF_TB_XRAY_SPACE_URL
+        sync: false
+      - key: HF_TB_XRAY_SPACE_API_NAME
+        value: predict
+      - key: ENABLE_LOCAL_TORCHXRAYVISION
+        value: "true"
+      - key: ENABLE_LOCAL_MOBILEVIT_XRAY
+        value: "true"
+      - key: LOCAL_MOBILEVIT_XRAY_MODEL
+        value: Jesteban247/mobilevit_small-chest_xray
+      - key: LOCAL_MOBILEVIT_RETRY_SECONDS
+        value: "300"
+      - key: HF_SPACE_XRAY_TIMEOUT_SECONDS
+        value: "30"
+      - key: HF_SPACE_XRAY_POLL_TIMEOUT_SECONDS
+        value: "120"
+      - key: XRAY_PNEUMONIA_SHOW_THRESHOLD
+        value: "72"
+      - key: XRAY_NORMAL_SHOW_THRESHOLD
+        value: "80"
+      - key: XRAY_BROAD_MIN_SCORE
+        value: "0.6"
+      - key: XRAY_TB_MIN_SCORE
+        value: "0.65"

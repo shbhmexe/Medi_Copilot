@@ -19,6 +19,11 @@ import ReportAnalyzer from "@/components/ReportAnalyzer";
 import { buildQueueClinicalSummary } from "@/lib/clinical-display";
 import { runAuthorizedRequest } from "@/lib/client-auth";
 import { buildPatientInitials } from "@/lib/onboarding";
+import {
+  getXrayDisplayFindings,
+  getXraySummaryLabel,
+  getXrayToneClasses,
+} from "@/lib/xray-display";
 import type { DoctorPassRecord } from "@/lib/patient-portal";
 import { MedicalReportModal } from "@/components/modals/medical-report-modal";
 
@@ -96,7 +101,7 @@ function buildSavedPayloadFromPatientPass(patientPass: DoctorPassRecord): SavedO
       patientPass.booking?.specialty && `Specialty: ${patientPass.booking.specialty}`,
       patientPass.booking?.hospitalName && `Hospital: ${patientPass.booking.hospitalName}`,
       patientPass.booking?.appointmentDate &&
-      `Appointment date: ${[patientPass.booking.appointmentDate, patientPass.booking.appointmentTime].filter(Boolean).join(" · ")}`,
+      `Appointment date: ${[patientPass.booking.appointmentDate, patientPass.booking.appointmentTime].filter(Boolean).join(" - ")}`,
       chiefComplaint && `Chief complaint: ${chiefComplaint}`,
       medicalHistory && `Medical history: ${medicalHistory}`,
       patientPass.history?.currentMedications && `Current medications: ${patientPass.history.currentMedications}`,
@@ -144,7 +149,7 @@ function buildPatientRecordFromPatientPass(patientPass: DoctorPassRecord): Patie
     isUrgent: /urgent|emergency|severe|critical/i.test(
       `${patientPass.booking?.reason || ""} ${patientPass.booking?.symptoms || ""}`
     ),
-    wait: [patientPass.booking?.appointmentDate, patientPass.booking?.appointmentTime].filter(Boolean).join(" · ") || "Scheduled",
+    wait: [patientPass.booking?.appointmentDate, patientPass.booking?.appointmentTime].filter(Boolean).join(" - ") || "Scheduled",
     rawText: payload.rawText,
     clinicalFields: payload.clinicalFields,
     assignedDoctorId: patientPass.booking?.doctorId,
@@ -527,6 +532,60 @@ const DiagnosisBox = ({ d }: { d: DiagnosisCardData }) => (
     </div>
   </motion.div>
 );
+
+const XrayVerdictSummary = ({ result }: { result: any }) => {
+  const tone = getXrayToneClasses(result);
+  const findings = getXrayDisplayFindings(result);
+  const abnormalFindings = findings.filter((finding) => finding.category !== "normal");
+
+  return (
+    <div className="space-y-5 pt-2">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-4">
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-inner ${tone.icon}`}>
+            <Zap size={24} className="opacity-80" />
+          </div>
+          <div>
+            <h3 className={`text-3xl font-bold font-serif mb-1 ${tone.heading}`}>
+              {getXraySummaryLabel(result)}
+            </h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+              Multi-model radiology summary
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-start md:items-end">
+          <span className={`text-4xl font-bold font-serif leading-none ${tone.heading}`}>
+            {abnormalFindings.length}
+          </span>
+          <span className="text-[9px] font-bold tracking-widest uppercase opacity-70 mt-1">
+            Displayed Findings
+          </span>
+        </div>
+      </div>
+
+      {findings.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {findings.map((finding) => (
+            <span
+              key={`${finding.source}-${finding.label}`}
+              className="rounded-lg bg-white/70 border border-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-600"
+            >
+              {finding.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {result?.summary_text && (
+        <p className="text-sm font-semibold italic text-[#64748b] leading-relaxed">
+          {result.summary_text}
+        </p>
+      )}
+    </div>
+  );
+};
 
 export default function ConsultationPage() {
   const params = useParams<{ visitId: string }>();
@@ -1647,90 +1706,16 @@ export default function ConsultationPage() {
                     </div>
 
                     {/* X-Ray Result */}
-                    <div
-                      className={`border rounded-2xl p-8 relative ${
-                        onboardingXrayResult?.top_class === "NORMAL"
-                          ? "bg-emerald-50 border-emerald-200"
-                          : onboardingXrayResult?.top_class === "VIRAL_PNEUMONIA"
-                          ? "bg-amber-50 border-amber-200"
-                          : onboardingXrayResult
-                          ? "bg-red-50 border-red-200"
-                          : "bg-white border-[#E2E8F0]"
-                      }`}
-                    >
-                      <label
-                        className={`text-[10px] font-bold tracking-[0.2em] uppercase mb-4 flex justify-between items-center ${
-                          onboardingXrayResult?.top_class === "NORMAL"
-                            ? "text-emerald-700"
-                            : onboardingXrayResult?.top_class === "VIRAL_PNEUMONIA"
-                            ? "text-amber-700"
-                            : onboardingXrayResult
-                            ? "text-red-700"
-                            : "text-[#16a34a]"
-                        }`}
-                      >
+                    <div className="border rounded-2xl p-8 relative bg-white border-[#E2E8F0]">
+                      <label className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4 flex justify-between items-center text-[#16a34a]">
                         X-Ray Verdict
                         {!onboardingXrayResult && <span className="text-slate-400">NO X-RAY UPLOADED</span>}
                       </label>
 
                       {onboardingXrayResult ? (
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-2">
-                          <div className="flex items-center gap-4">
-                            <div
-                              className={`w-14 h-14 rounded-full flex items-center justify-center shadow-inner ${
-                                onboardingXrayResult.top_class === "NORMAL"
-                                  ? "bg-emerald-100"
-                                  : onboardingXrayResult.top_class === "VIRAL_PNEUMONIA"
-                                  ? "bg-amber-100"
-                                  : "bg-red-100"
-                              }`}
-                            >
-                              <Zap
-                                size={24}
-                                className={`opacity-80 ${
-                                  onboardingXrayResult.top_class === "NORMAL"
-                                    ? "text-emerald-700"
-                                    : onboardingXrayResult.top_class === "VIRAL_PNEUMONIA"
-                                    ? "text-amber-700"
-                                    : "text-red-700"
-                                }`}
-                              />
-                            </div>
-                            <div>
-                              <h3
-                                className={`text-4xl font-bold font-serif mb-1 ${
-                                  onboardingXrayResult.top_class === "NORMAL"
-                                    ? "text-emerald-800"
-                                    : onboardingXrayResult.top_class === "VIRAL_PNEUMONIA"
-                                    ? "text-amber-800"
-                                    : "text-red-800"
-                                }`}
-                              >
-                                {String(onboardingXrayResult.top_class || "UNKNOWN").replace(/_/g, " ")}
-                              </h3>
-                              <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">
-                                Primary Radiological Classification
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col items-end">
-                            <span
-                              className={`text-5xl font-bold font-serif leading-none ${
-                                onboardingXrayResult.top_class === "NORMAL"
-                                  ? "text-emerald-900"
-                                  : onboardingXrayResult.top_class === "VIRAL_PNEUMONIA"
-                                  ? "text-amber-900"
-                                  : "text-red-900"
-                              }`}
-                            >
-                              {Number(onboardingXrayResult.top_confidence || 0).toFixed(1)}%
-                            </span>
-                            <span className="text-[9px] font-bold tracking-widest uppercase opacity-70 mt-1">
-                              Classification Confidence
-                            </span>
-                          </div>
-                        </div>
+                        <>
+                        <XrayVerdictSummary result={onboardingXrayResult} />
+                        </>
                       ) : (
                         <p className="text-sm font-semibold italic text-[#64748b] pt-2">
                           Patient onboarding did not include radiological evidence.

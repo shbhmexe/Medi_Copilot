@@ -6,6 +6,14 @@ import {
   ChevronDown, ChevronUp, CheckCircle2, Microscope, X, Stethoscope
 } from "lucide-react";
 import { useAuthStore } from "@/store";
+import {
+  buildXrayConsensusText,
+  getXrayDisplayFindings,
+  getXraySummaryLabel,
+  getXrayToneClasses,
+  getXrayWarnings,
+  type XRayDisplayResult,
+} from "@/lib/xray-display";
 
 interface Prediction {
   disease: string;
@@ -19,24 +27,10 @@ interface PredictResult {
   extracted_text?: string;
 }
 
-interface XRayProb {
-  class: string;
-  probability: number;
-}
-
-interface XRayResult {
-  top_class: string;
-  top_confidence: number;
-  all_probabilities: XRayProb[];
-  low_confidence: boolean;
-  warning: string | null;
-  processing_ms: number;
-}
-
 type AnalyzerResultsPayload = {
   mode: Mode;
   modelResult?: PredictResult | null;
-  xrayResult?: XRayResult | null;
+  xrayResult?: XRayDisplayResult | null;
 };
 
 type Mode = "text" | "image" | "xray";
@@ -70,10 +64,10 @@ export default function ReportAnalyzer({
   const [expandedCard, setExpandedCard] = useState<number | null>(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── X-Ray state ──────────────────────────────────────────────
+  // X-Ray state
   const [xrayFile, setXrayFile]         = useState<File | null>(null);
   const [xrayPreview, setXrayPreview]   = useState<string | null>(null);
-  const [xrayResult, setXrayResult]     = useState<XRayResult | null>(null);
+  const [xrayResult, setXrayResult]     = useState<XRayDisplayResult | null>(null);
   const [xrayDragOver, setXrayDragOver] = useState(false);
   const [xrayStatus, setXrayStatus]     = useState<Status>("idle");
   const [xrayError, setXrayError]       = useState("");
@@ -180,7 +174,7 @@ export default function ReportAnalyzer({
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // ── X-Ray handler ────────────────────────────────────────────
+  // X-Ray handler
   const handleXraySelect = async (file: File) => {
     const allowed = ["image/jpeg", "image/png"];
     if (!allowed.includes(file.type)) {
@@ -246,13 +240,13 @@ export default function ReportAnalyzer({
             const errDetail = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error ?? `Server error ${res.status}`);
             throw new Error(errDetail);
           }
-          const r: XRayResult = data.data;
+          const r: XRayDisplayResult = data.data;
           setXrayResult(r);
           setXrayStatus("success");
           onResults?.({ mode: "xray", xrayResult: r });
-          // Feed result into parent consensus if Pneumonia
-          if (onConsensus && r.top_class !== "NORMAL") {
-            onConsensus(`X-Ray: ${r.top_class} (${r.top_confidence.toFixed(1)}%)`);
+          const consensusText = buildXrayConsensusText(r);
+          if (onConsensus && consensusText) {
+            onConsensus(consensusText);
           }
         } catch (err: unknown) {
           const msg = err instanceof Error && err.name === "AbortError"
@@ -290,7 +284,7 @@ export default function ReportAnalyzer({
           <div>
             <h3 className="text-lg font-semibold text-medcopilot-text-primary">Clinical AI Diagnostic Engine</h3>
             <p className="text-[10px] text-medcopilot-text-muted/70 mt-0.5">
-              OCR + NLP model · Trained on gretelai + Symptom2Disease + venetis · Zero external APIs
+              OCR + NLP model - local pneumonia subtype + optional broad X-ray/TB screening
             </p>
           </div>
         </div>
@@ -301,7 +295,7 @@ export default function ReportAnalyzer({
         )}
       </div>
 
-      {/* Mode Toggle — 3 tabs */}
+      {/* Mode Toggle - 3 tabs */}
       <div className="flex p-1 bg-white/5 border border-medcopilot-border-subtle rounded-xl">
         <button
           onClick={() => { setMode("text"); reset(); }}
@@ -336,7 +330,7 @@ export default function ReportAnalyzer({
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ── TEXT / IMAGE modes (existing) ── */}
+        {/* TEXT / IMAGE modes */}
         {mode !== "xray" && status === "idle" && (
           <motion.div key="input" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             {mode === "text" ? (
@@ -378,7 +372,7 @@ export default function ReportAnalyzer({
                   <p className="font-semibold text-medcopilot-text-primary">
                     {dragOver ? "Release to analyze" : "Drop a symptom report image"}
                   </p>
-                  <p className="text-sm text-medcopilot-text-muted mt-1">JPG, PNG, WEBP — same format as training data</p>
+                  <p className="text-sm text-medcopilot-text-muted mt-1">JPG, PNG, WEBP - same format as training data</p>
                 </div>
                 <input
                   ref={fileRef} type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden"
@@ -389,7 +383,7 @@ export default function ReportAnalyzer({
           </motion.div>
         )}
 
-        {/* ── X-RAY mode ── */}
+        {/* X-RAY mode */}
         {mode === "xray" && xrayStatus === "idle" && (
           <motion.div key="xray-idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div
@@ -407,7 +401,7 @@ export default function ReportAnalyzer({
                 <p className="font-semibold text-medcopilot-text-primary">
                   {xrayDragOver ? "Release to analyze" : "Drop a Chest X-Ray image here"}
                 </p>
-                <p className="text-sm text-medcopilot-text-muted mt-1">JPG or PNG · Max 10 MB · Min 100×100 px</p>
+                <p className="text-sm text-medcopilot-text-muted mt-1">JPG or PNG - Max 10 MB - Min 100x100 px</p>
               </div>
               <input ref={xrayFileRef} type="file" accept=".jpg,.jpeg,.png" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleXraySelect(f); }}
@@ -415,7 +409,7 @@ export default function ReportAnalyzer({
             </div>
             {/* Info strip */}
             <p className="text-center text-[10px] text-medcopilot-text-muted/50 mt-3">
-              MobileNetV2 · Transfer Learning · Trained on NIH Chest X-Ray Dataset · 3-class classification · No cloud API
+              MobileNetV2 pneumonia subtype + Hugging Face broad disease/TB models when configured
             </p>
           </motion.div>
         )}
@@ -432,7 +426,7 @@ export default function ReportAnalyzer({
                 transition={{ repeat: Infinity, duration: 1.4 }}
               />
             </div>
-            <p className="text-sm text-medcopilot-text-muted">Running MobileNetV2 inference on X-Ray…</p>
+            <p className="text-sm text-medcopilot-text-muted">Running pneumonia subtype + broad X-Ray screening...</p>
           </motion.div>
         )}
 
@@ -451,21 +445,28 @@ export default function ReportAnalyzer({
         )}
 
         {/* X-Ray success */}
-        {mode === "xray" && xrayStatus === "success" && xrayResult && (
-          <motion.div key="xray-results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-            {/* Confidence warning */}
-            {xrayResult.low_confidence && (
+        {mode === "xray" && xrayStatus === "success" && xrayResult && (() => {
+          const findings = getXrayDisplayFindings(xrayResult);
+          const tone = getXrayToneClasses(xrayResult);
+          const warnings = getXrayWarnings(xrayResult);
+          const abnormalFindings = findings.filter((finding) => finding.category !== "normal");
+
+          return (
+          <motion.div key="xray-results-v2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            {warnings.length > 0 && (
               <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-300">
                 <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                  Low confidence result — review with a qualified radiologist before clinical use.
-                </p>
+                <div className="space-y-1">
+                  {warnings.slice(0, 2).map((warning) => (
+                    <p key={warning} className="text-xs text-amber-700 leading-relaxed font-medium">
+                      {warning}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* X-Ray Preview + Results side-by-side */}
             <div className="flex gap-5 items-start">
-              {/* Preview */}
               {xrayPreview && (
                 <div className="flex-shrink-0">
                   <img src={xrayPreview} alt="Uploaded X-Ray" className="w-[130px] h-[130px] rounded-xl object-cover border-2 border-[#E2E8F0] shadow-sm" />
@@ -473,96 +474,80 @@ export default function ReportAnalyzer({
                 </div>
               )}
 
-              {/* Probability bars */}
               <div className="flex-1 space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#64748b] mb-3">Classification Breakdown</p>
-                {xrayResult.all_probabilities.map((prob, idx) => {
-                  const isTop = prob.class === xrayResult.top_class;
-                  const label = prob.class === "NORMAL" ? "Normal"
-                    : prob.class === "BACTERIAL_PNEUMONIA" ? "Bacterial Pneumonia"
-                    : "Viral Pneumonia";
-                  const barColor = prob.class === "NORMAL"
-                    ? "bg-emerald-500"
-                    : prob.class === "BACTERIAL_PNEUMONIA"
-                    ? "bg-red-500"
-                    : "bg-amber-500";
-                  const textColor = prob.class === "NORMAL"
-                    ? "text-emerald-700"
-                    : prob.class === "BACTERIAL_PNEUMONIA"
-                    ? "text-red-700"
-                    : "text-amber-700";
-                  return (
-                    <div key={prob.class}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`text-xs font-bold ${isTop ? textColor : "text-[#64748b]"}`}>
-                          {isTop && <span className="mr-1">▶</span>}{label}
-                        </span>
-                        <span className={`text-xs font-mono font-bold ${isTop ? textColor : "text-[#94a3b8]"}`}>
-                          {prob.probability.toFixed(1)}%
-                        </span>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#64748b]">Detected Findings</p>
+                {findings.length > 0 ? (
+                  <div className="space-y-2">
+                    {findings.map((finding) => (
+                      <div key={`${finding.source}-${finding.label}`} className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className={`text-sm font-bold ${finding.category === "normal" ? "text-emerald-700" : "text-red-700"}`}>
+                              {finding.label}
+                            </p>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">
+                              {finding.source === "local_pneumonia_model"
+                                ? "Local pneumonia subtype"
+                                : finding.category === "tb_screening"
+                                ? "TB screening"
+                                : "Broad CXR model"}
+                            </p>
+                          </div>
+                          <span className={`rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                            finding.category === "normal"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
+                          }`}>
+                            {finding.status || "Detected"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="h-2 bg-[#F1F5F9] rounded-full overflow-hidden">
-                        <motion.div
-                          className={`h-full rounded-full ${barColor} ${isTop ? "opacity-100" : "opacity-30"}`}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${prob.probability}%` }}
-                          transition={{ duration: 0.7, delay: idx * 0.1, ease: "easeOut" }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-sm font-bold text-amber-800">No confident X-ray finding</p>
+                    <p className="mt-1 text-xs font-semibold text-amber-700">
+                      The pneumonia subtype result was not strong enough to show as a finding.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Verdict card */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border-2 ${
-              xrayResult.top_class === "NORMAL"
-                ? "bg-emerald-50 border-emerald-300"
-                : xrayResult.top_class === "VIRAL_PNEUMONIA"
-                ? "bg-amber-50 border-amber-300"
-                : "bg-red-50 border-red-300"
-            }`}>
+            <div className={`flex items-center justify-between gap-4 p-4 rounded-xl border-2 ${tone.card}`}>
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                  xrayResult.top_class === "NORMAL" ? "bg-emerald-100" : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "bg-amber-100" : "bg-red-100"
-                }`}>
-                  <CheckCircle2 size={18} className={
-                    xrayResult.top_class === "NORMAL" ? "text-emerald-600" : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "text-amber-600" : "text-red-600"
-                  } />
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${tone.icon}`}>
+                  <CheckCircle2 size={18} />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">AI Verdict</p>
-                  <p className={`text-sm font-bold ${
-                    xrayResult.top_class === "NORMAL" ? "text-emerald-700" : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "text-amber-700" : "text-red-700"
-                  }`}>
-                    {xrayResult.top_class === "NORMAL" ? "Normal" : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "Viral Pneumonia" : "Bacterial Pneumonia"}
-                  </p>
+                  <p className={`text-sm font-bold ${tone.text}`}>{getXraySummaryLabel(xrayResult)}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">Confidence</p>
-                <p className={`text-lg font-bold font-mono ${
-                  xrayResult.top_class === "NORMAL" ? "text-emerald-700" : xrayResult.top_class === "VIRAL_PNEUMONIA" ? "text-amber-700" : "text-red-700"
-                }`}>
-                  {xrayResult.top_confidence.toFixed(1)}%
-                </p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">Findings</p>
+                <p className={`text-lg font-bold font-mono ${tone.text}`}>{abnormalFindings.length}</p>
               </div>
             </div>
 
-            {/* Reset */}
+            {xrayResult.summary_text && (
+              <p className="text-xs font-semibold leading-relaxed text-[#64748b]">{xrayResult.summary_text}</p>
+            )}
+
             <button onClick={resetXray} className="text-xs text-[#64748b] hover:text-[#1e293b] underline transition-colors">
-              ↩ Analyze another X-Ray
+              Analyze another X-Ray
             </button>
 
-            {/* Footer strip */}
             <p className="text-center text-[10px] text-[#94a3b8]/70">
-              MobileNetV2 · Transfer Learning · Trained on NIH Chest X-Ray Dataset · 3-class · No cloud API
+              Local pneumonia subtype + separate broad disease and TB model slots
             </p>
           </motion.div>
-        )}
+          );
+        })()}
 
-        {/* ── Loading (text/image modes) ── */}
+
+        {/* Loading (text/image modes) */}
         {mode !== "xray" && status === "loading" && (
           <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex flex-col items-center gap-4 py-10"
@@ -574,11 +559,11 @@ export default function ReportAnalyzer({
                 transition={{ repeat: Infinity, duration: 1.4 }}
               />
             </div>
-            <p className="text-sm text-medcopilot-text-muted">Running OCR → TF-IDF → MultinomialNB pipeline...</p>
+            <p className="text-sm text-medcopilot-text-muted">Running OCR to TF-IDF to MultinomialNB pipeline...</p>
           </motion.div>
         )}
 
-        {/* ── Error (text/image modes) ── */}
+        {/* Error (text/image modes) */}
         {mode !== "xray" && status === "error" && (
           <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex items-start gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/30"
@@ -592,7 +577,7 @@ export default function ReportAnalyzer({
           </motion.div>
         )}
 
-        {/* ── Success (text/image modes) ── */}
+        {/* Success (text/image modes) */}
         {mode !== "xray" && status === "success" && result && (
           <motion.div key="results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
             {result.extracted_text && (
@@ -690,7 +675,7 @@ export default function ReportAnalyzer({
                 <div>
                   <p className="text-xs font-bold text-emerald-300">Awaiting 3-Model Consensus</p>
                   <p className="text-[10px] text-medcopilot-text-muted mt-0.5">
-                    Local NLP → <span className="text-emerald-400 font-bold">{result.predictions[0].disease}</span> ({Math.round(result.predictions[0].probability * 100)}%) · Compare with Llama-3 + Neo4j results
+                    Local NLP to <span className="text-emerald-400 font-bold">{result.predictions[0].disease}</span> ({Math.round(result.predictions[0].probability * 100)}%) - Compare with Llama-3 + Neo4j results
                   </p>
                 </div>
               </motion.div>
