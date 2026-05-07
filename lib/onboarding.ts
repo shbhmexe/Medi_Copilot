@@ -9,6 +9,14 @@ export function buildPatientInitials(name: string) {
   return `${first[0] || ""}${second[0] || ""}`.toUpperCase() || "PT";
 }
 
+function createFallbackPatientId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `PAT-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  }
+
+  return `PAT-${Date.now().toString(16).slice(-8).toUpperCase()}`;
+}
+
 export function mergeClinicalFields(
   existing?: PatientRecord["clinicalFields"],
   incoming?: PatientRecord["clinicalFields"]
@@ -29,6 +37,7 @@ export function buildPatientRecordFromOnboarding(
   payload: OnboardingSuccessPayload,
   existing?: PatientRecord
 ): PatientRecord {
+  const patientId = payload.patientId?.trim() || existing?.id || createFallbackPatientId();
   const mergedClinicalFields = mergeClinicalFields(existing?.clinicalFields, payload.clinicalFields);
   const complaint = buildQueueClinicalSummary({
     ...existing,
@@ -38,7 +47,7 @@ export function buildPatientRecordFromOnboarding(
   }).text;
 
   return {
-    id: payload.patientId,
+    id: patientId,
     initials: buildPatientInitials(payload.name),
     name: payload.name,
     age: payload.age,

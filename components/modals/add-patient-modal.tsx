@@ -60,6 +60,14 @@ interface AddPatientModalProps {
 
 import { useAuthStore } from "@/store";
 
+function createLocalPatientId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `PAT-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  }
+
+  return `PAT-${Date.now().toString(16).slice(-8).toUpperCase()}`;
+}
+
 export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalProps) {
   const { accessToken, user, setUser } = useAuthStore();
   const router = useRouter();
@@ -192,6 +200,9 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
       toast.error("Please attach a clinical report to proceed, or use quick add.");
       return;
     }
+
+    const localPatientId = patientId || createLocalPatientId();
+    setPatientId(localPatientId);
     
     // Jump straight to the Medical input form (Step 4) without a blocking loading screen
     setStep(4);
@@ -220,11 +231,12 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
       }
 
       if (!data.patient_id) {
-        throw new Error("Backend response did not include a patient id");
+        toast.warning("AI service did not return a patient id. Using a local visit id.");
+      } else {
+        setPatientId(data.patient_id);
       }
 
       setSummary(data.summary || "No summary returned by ingestion service.");
-      setPatientId(data.patient_id);
       
       const extractedText = typeof data.raw_text === "string" ? data.raw_text : "";
       setRawText(extractedText);
@@ -250,6 +262,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
       
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : "Unknown error";
+      setSummary("Document extraction did not finish, but the patient can still be reviewed from the queue.");
       toast.error(`Background extraction failed: ${message}`);
     } finally {
       setIsExtractingKeywords(false);
@@ -311,9 +324,13 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
 
       setProcessingStatus("Finalizing clinical record...");
       const finalClinicalFields = buildFinalClinicalFields();
+      const finalPatientId = patientId || createLocalPatientId();
+      if (!patientId) {
+        setPatientId(finalPatientId);
+      }
       
       const successPayload: OnboardingSuccessPayload = {
-        patientId,
+        patientId: finalPatientId,
         name: formData.name.trim(),
         age: Number(formData.age) || 0,
         sex: formData.sex,
@@ -327,7 +344,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
       };
 
       try {
-        localStorage.setItem(`medcopilot:onboarding:${patientId}`, JSON.stringify(successPayload));
+        localStorage.setItem(`medcopilot:onboarding:${finalPatientId}`, JSON.stringify(successPayload));
       } catch (storageError) {}
 
       setStep(6);
@@ -506,7 +523,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                       <CheckCircle2 size={32} className="text-[#16a34a]" />
                    </div>
                    <h4 className="text-2xl font-bold font-serif text-[#1e293b] mb-1">Analysis Complete</h4>
-                   <p className="text-sm font-bold text-[#16a34a] bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-widest mt-2">{formData.name} (ID: {patientId})</p>
+                   <p className="text-sm font-bold text-[#16a34a] bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-widest mt-2">{formData.name} (ID: {patientId || "Generating..."})</p>
                  </div>
 
                  {modelResult?.predictions?.length ? (
@@ -548,9 +565,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                  <button
                    onClick={() => {
                      onClose();
-                     if (patientId) {
-                       router.push(`/consultation/${patientId}`);
-                     }
+                     const routePatientId = patientId || createLocalPatientId();
+                     router.push(`/consultation/${routePatientId}`);
                    }}
                    className="w-full py-4 bg-[#1e293b] text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-black transition-all mt-4"
                  >
