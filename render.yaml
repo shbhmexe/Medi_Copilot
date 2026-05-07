@@ -23,9 +23,9 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: AI_INFERENCE_URL
-        sync: false
+        value: https://medcopilot-ai.onrender.com
       - key: AI_INFERENCE_SERVICE_URL
-        sync: false
+        value: https://medcopilot-ai.onrender.com
       - key: PATIENT_APP_URL
         sync: false
 
