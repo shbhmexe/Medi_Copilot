@@ -1600,18 +1600,46 @@ export default function ConsultationPage() {
                         {!onboardingModelResult && <span className="text-slate-400">NO DATA FOUND</span>}
                       </label>
                       {onboardingModelResult?.predictions?.length ? (
-                        <div className="space-y-2 pt-2">
-                          {onboardingModelResult.predictions.map((prediction, i) => (
-                            <div key={i} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0 hover:bg-emerald-50 rounded-lg px-4 transition-colors">
-                              <div className="flex gap-4 items-center">
-                                <span className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shadow-sm">{i + 1}</span>
-                                <span className="font-bold text-slate-700 text-sm tracking-wide">{prediction.disease}</span>
+                        <div className="space-y-4 pt-2">
+                          {onboardingModelResult.predictions.map((prediction, i) => {
+                            const percentage = Math.max(
+                              0,
+                              Math.min(
+                                100,
+                                Math.round(
+                                  prediction.probability <= 1
+                                    ? prediction.probability * 100
+                                    : prediction.probability
+                                )
+                              )
+                            );
+
+                            return (
+                              <div key={i} className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm transition-colors hover:border-emerald-100 hover:bg-emerald-50/40">
+                                <div className="mb-3 flex items-center justify-between gap-4">
+                                  <div className="flex min-w-0 items-center gap-4">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 shadow-sm">
+                                      {i + 1}
+                                    </span>
+                                    <span className="truncate text-sm font-bold tracking-wide text-slate-700">
+                                      {prediction.disease}
+                                    </span>
+                                  </div>
+                                  <span className="shrink-0 font-mono text-lg font-bold tracking-widest text-emerald-600">
+                                    {percentage}%
+                                  </span>
+                                </div>
+                                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${percentage}%` }}
+                                    transition={{ duration: 0.55, ease: "easeOut" }}
+                                    className="h-full rounded-full bg-[#16a34a] shadow-[0_0_14px_rgba(22,163,74,0.25)]"
+                                  />
+                                </div>
                               </div>
-                              <span className="text-emerald-600 font-mono font-bold tracking-widest text-lg">
-                                {Math.round(prediction.probability * 100)}%
-                              </span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm font-semibold italic text-[#64748b] pt-2">No NLP condition predictions generated during onboarding.</p>

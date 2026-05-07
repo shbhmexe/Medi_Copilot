@@ -51,6 +51,8 @@ const rankColors = [
   "ring-slate-500/30 bg-white/[0.02]",
 ];
 
+const XRAY_CLIENT_TIMEOUT_MS = 35_000;
+
 export default function ReportAnalyzer({
   onConsensus,
   onResults,
@@ -198,11 +200,14 @@ export default function ReportAnalyzer({
       reader.onload = async (e) => {
         try {
           const b64 = (e.target?.result as string).split(",")[1];
+          const controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), XRAY_CLIENT_TIMEOUT_MS);
           const res = await fetch("/api/predict-xray", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ image: b64 }),
-          });
+            signal: controller.signal,
+          }).finally(() => window.clearTimeout(timeout));
           const data = await res.json();
           if (!res.ok || !data.success) {
             const errDetail = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error ?? `Server error ${res.status}`);
@@ -217,7 +222,9 @@ export default function ReportAnalyzer({
             onConsensus(`X-Ray: ${r.top_class} (${r.top_confidence.toFixed(1)}%)`);
           }
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
+          const msg = err instanceof Error && err.name === "AbortError"
+            ? "X-Ray request timed out. Please try a smaller JPG/PNG or retry after the AI service wakes up."
+            : err instanceof Error ? err.message : String(err);
           setXrayError(msg);
           setXrayStatus("error");
         }
